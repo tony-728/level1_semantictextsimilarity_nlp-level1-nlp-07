@@ -201,15 +201,14 @@ class Model(pl.LightningModule):
         scheduler = StepLR(optimizer, step_size=5, gamma=0.9)
         return [optimizer], [scheduler]
 
-
 if __name__ == "__main__":
     # 하이퍼 파라미터 등 각종 설정값을 입력받습니다
     # 터미널 실행 예시 : python3 run.py --batch_size=64 ...
     # 실행 시 '--batch_size=64' 같은 인자를 입력하지 않으면 default 값이 기본으로 실행됩니다
     parser = argparse.ArgumentParser()
     parser.add_argument("--model_name", default="jhgan/ko-sroberta-sts", type=str)
-    parser.add_argument("--batch_size", default=32, type=int)
-    parser.add_argument("--max_epoch", default=20, type=int)
+    parser.add_argument("--batch_size", default=128, type=int)
+    parser.add_argument("--max_epoch", default=5, type=int)
     parser.add_argument("--shuffle", default=True)
     parser.add_argument("--learning_rate", default=1e-5, type=float)
     parser.add_argument("--train_path", default="../data/train.csv")
@@ -217,59 +216,69 @@ if __name__ == "__main__":
     parser.add_argument("--test_path", default="../data/dev.csv")
     parser.add_argument("--predict_path", default="../data/test.csv")
     args = parser.parse_args(args=[])
-
     project_name = args.model_name.split("/")[-1]
-
     # wandb setting
     # 필요 라이브러리 import wandb
-    wandb.login(key="API KEY")
-    wandb.init(
-        entity="naver-nlp-07",
-        project=project_name,
-        name=f"(batch:{args.batch_size},epoch:{args.max_epoch},lr:{args.learning_rate})",
-    )
+    wandb.login(key="4ed020c345bc941f67fbdc08a90ec5d2ea31d4bb")
     # -------------------------------------------------------------------------------------
-
-    # dataloader와 model을 생성합니다.
-    dataloader = Dataloader(
-        args.model_name,
-        args.batch_size,
-        args.shuffle,
-        args.train_path,
-        args.dev_path,
-        args.test_path,
-        args.predict_path,
-    )
-    model = Model(args.model_name, args.learning_rate)
-
-    # wandb logger for pytorch lightning Trainer
-    # 필요 라이브러리 from pytorch_lightning.loggers import WandbLogger
-    wandb_logger = WandbLogger(project=project_name)
+    # Sweep 할 대상
+    sweep_config = {
+        "method": "random",
+        "parameters": {
+            "learning_rate": {"distribution": "uniform", "min": 1e-6, "max": 1e-4}
+        },
+    }
+    sweep_config["metric"] = {
+        "name": "val_pearson",
+        "goal": "maximize",
+    }  # val_pearson을 최대화하는걸 기준점으로
+    def sweep_train(config=None):
+        wandb.init(
+            entity="naver-nlp-07",
+            # project=project_name,
+            # name=f"(batch:{args.batch_size},epoch:{args.max_epoch},lr:{config.learning_rate})",
+            config=config,
+        )
+        config = wandb.config
+        # dataloader와 model을 생성합니다.
+        dataloader = Dataloader(
+            args.model_name,
+            args.batch_size,
+            args.shuffle,
+            args.train_path,
+            args.dev_path,
+            args.test_path,
+            args.predict_path,
+        )
+        model = Model(args.model_name, config.learning_rate)
+        # wandb logger for pytorch lightning Trainer
+        # 필요 라이브러리 from pytorch_lightning.loggers import WandbLogger
+        wandb_logger = WandbLogger(project=project_name)
+        # -------------------------------------------------------------------------------------
+        # pytorch lightning model checkpoint
+        # 필요 라이브러리 from pytorch_lightning.callbacks import ModelCheckpoint
+        checkpoint_callback = ModelCheckpoint(
+            monitor="val_pearson",
+            dirpath=f"checkpoint/{project_name}/batch{args.batch_size}_epoch{args.max_epoch}_lr{args.learning_rate}",
+            filename="{epoch:02d}-{val_pearson:.2f}",
+            save_top_k=3,
+            mode="min",
+        )
+        # -------------------------------------------------------------------------------------
+        # gpu가 없으면 'gpus=0'을, gpu가 여러개면 'gpus=4'처럼 사용하실 gpu의 개수를 입력해주세요
+        trainer = pl.Trainer(
+            gpus=1,
+            max_epochs=args.max_epoch,
+            log_every_n_steps=1,
+            logger=wandb_logger,
+            callbacks=[checkpoint_callback],  # checkpoint 설정 추가
+        )
+        # Train part
+        trainer.fit(model=model, datamodule=dataloader)
+        trainer.test(model=model, datamodule=dataloader)
+    # 학습이 완료된 모델을 저장합니다. 어차피 checkpoint로 마지막 3개를 저장하니까 마지막은 중복저장됨.
+    # torch.save(model, "model.pt")
+    # sweep.agent를 사용해서 학습 시작
+    sweep_id = wandb.sweep(sweep=sweep_config, project=project_name)
+    wandb.agent(sweep_id=sweep_id, function=sweep_train, count=5)  # Sweep을 몇번 실행할 지 선택
     # -------------------------------------------------------------------------------------
-
-    # pytorch lightning model checkpoint
-    # 필요 라이브러리 from pytorch_lightning.callbacks import ModelCheckpoint
-    checkpoint_callback = ModelCheckpoint(
-        monitor="val_pearson",
-        dirpath=f"checkpoint/{project_name}/batch{args.batch_size}_epoch{args.max_epoch}_lr{args.learning_rate}",
-        filename="{epoch:02d}-{val_pearson:.2f}",
-        save_top_k=3,
-        mode="min",
-    )
-    # -------------------------------------------------------------------------------------
-
-    # gpu가 없으면 'gpus=0'을, gpu가 여러개면 'gpus=4'처럼 사용하실 gpu의 개수를 입력해주세요
-    trainer = pl.Trainer(
-        gpus=1,
-        max_epochs=args.max_epoch,
-        log_every_n_steps=1,
-        logger=wandb_logger,
-        callbacks=[checkpoint_callback],  # checkpoint 설정 추가
-    )
-
-    # Train part
-    trainer.fit(model=model, datamodule=dataloader)
-    trainer.test(model=model, datamodule=dataloader)
-
-    # 학습이 완료된 모델을 저장합니다.
-    torch.save(model, "model.pt")
