@@ -227,7 +227,7 @@ if __name__ == "__main__":
     model = Model(args.model_name, args.learning_rate)
 
     # gpu가 없으면 'gpus=0'을, gpu가 여러개면 'gpus=4'처럼 사용하실 gpu의 개수를 입력해주세요
-    checkpoint_path = f"{project_name}/epoch=04-val_loss=0.34.ckpt"
+    checkpoint_path = f"checkpoint/{project_name}/*.ckpt"
     trainer = pl.Trainer(
         gpus=1,
         max_epochs=args.max_epoch,
