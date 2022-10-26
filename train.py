@@ -251,7 +251,7 @@ if __name__ == "__main__":
     # 필요 라이브러리 from pytorch_lightning.callbacks import ModelCheckpoint
     checkpoint_callback = ModelCheckpoint(
         monitor="val_pearson",
-        dirpath=project_name,
+        dirpath=f"checkpoint/{project_name}",
         filename="{epoch:02d}-{val_pearson:.2f}",
         save_top_k=3,
         mode="min",
