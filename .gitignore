@@ -2,3 +2,4 @@ wandb/
 *.pt
 *.json
 checkpoint/
+lightning_logs/
