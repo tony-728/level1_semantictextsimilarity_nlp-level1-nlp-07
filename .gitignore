@@ -2,3 +2,4 @@
 wandb/
 *.pt
 checkpoint/
+config.json
