@@ -1,5 +1,6 @@
 wandb/
 *.pt
 *.json
+!config.json
 checkpoint/
 lightning_logs/
