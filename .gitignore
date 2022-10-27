@@ -4,3 +4,4 @@ wandb/
 !config.json
 checkpoint/
 lightning_logs/
+*.png
