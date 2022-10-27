@@ -268,6 +268,17 @@ def train(args, entity=None, project_name=None, wandb_check=True):
 
 
 if __name__ == "__main__":
+
+    def str2bool(v):
+        if isinstance(v, bool):
+            return v
+        if v.lower() in ("yes", "true", "t", "y", "1"):
+            return True
+        elif v.lower() in ("no", "false", "f", "n", "0"):
+            return False
+        else:
+            raise argparse.ArgumentTypeError("Boolean value expected.")
+
     # 하이퍼 파라미터 등 각종 설정값을 입력받습니다
     # 터미널 실행 예시 : python3 run.py --batch_size=64 ...
     # 실행 시 '--batch_size=64' 같은 인자를 입력하지 않으면 default 값이 기본으로 실행됩니다
@@ -281,8 +292,8 @@ if __name__ == "__main__":
     parser.add_argument("--dev_path", default="../data/dev.csv")
     parser.add_argument("--test_path", default="../data/dev.csv")
     parser.add_argument("--predict_path", default="../data/test.csv")
-    parser.add_argument("--with_wandb", default=True)
-    parser.add_argument("--with_wandb_sweep", default=True)
+    parser.add_argument("--with_wandb", default=True, type=str2bool)
+    parser.add_argument("--with_wandb_sweep", default=True, type=str2bool)
     args = parser.parse_args()
 
     project_name = args.model_name.split("/")[-1]
@@ -292,7 +303,7 @@ if __name__ == "__main__":
     with open("config.json", "r") as f:
         config = json.load(f)
 
-    if args.with_wandb == True:
+    if args.with_wandb:
         wandb.login(key=config["key"])  ##insert key
 
         if args.with_wandb_sweep == True:
