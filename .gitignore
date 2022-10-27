@@ -1,5 +1,4 @@
-*.ckpt
 wandb/
 *.pt
+*.json
 checkpoint/
-config.json
