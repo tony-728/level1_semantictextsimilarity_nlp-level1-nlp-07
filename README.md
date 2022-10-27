@@ -2,4 +2,3 @@
 level1_semantictextsimilarity_nlp-level1-nlp-07 created by GitHub Classroom
 
 Class = 침ㄴㄴ
-glass = 힘ㄴㄴ
