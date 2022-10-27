@@ -211,7 +211,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--model_name", default="jhgan/ko-sroberta-sts", type=str)
     # parser.add_argument("--batch_size", default=128, type=int)
-    parser.add_argument("--max_epoch", default=5, type=int)
+    parser.add_argument("--max_epoch", default=1, type=int)
     parser.add_argument("--shuffle", default=True)
     # parser.add_argument("--learning_rate", default=1e-5, type=float)
     parser.add_argument("--train_path", default="../data/train.csv")
@@ -222,7 +222,11 @@ if __name__ == "__main__":
     project_name = args.model_name.split("/")[-1]
 
     # wandb setting
-    config = json.loads("config.json")
+    import json
+
+    with open("config.json", "r") as f:
+
+        config = json.load(f)
 
     wandb.login(key=config["key"])  ##insert key
 
@@ -243,8 +247,6 @@ if __name__ == "__main__":
 
     def sweep_train(config=None):
         wandb.init(
-            entity="naver-nlp-07",
-            project=project_name,
             config=config,
         )
         config = wandb.config
@@ -290,6 +292,8 @@ if __name__ == "__main__":
     # 학습이 완료된 모델을 저장합니다. 어차피 checkpoint로 마지막 3개를 저장하니까 마지막은 중복저장됨.
     # torch.save(model, "model.pt")
     # sweep.agent를 사용해서 학습 시작
-    sweep_id = wandb.sweep(sweep=sweep_config)  # , project=project_name)
-    wandb.agent(sweep_id=sweep_id, function=sweep_train, count=10)  # Sweep을 몇번 실행할 지 선택
+    sweep_id = wandb.sweep(
+        sweep=sweep_config, project=project_name, entity="naver-nlp-07"
+    )  # , project=project_name)
+    wandb.agent(sweep_id=sweep_id, function=sweep_train, count=2)  # Sweep을 몇번 실행할 지 선택
     # -------------------------------------------------------------------------------------
