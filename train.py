@@ -253,36 +253,43 @@ class Model(pl.LightningModule):
         logits = self(x)
         loss = self.loss_func(logits, y.float())
         self.log("val_loss", loss)
-        val_pearson = torchmetrics.functional.pearson_corrcoef(logits.squeeze(), y.squeeze())
+        val_pearson = torchmetrics.functional.pearson_corrcoef(
+            logits.squeeze(), y.squeeze()
+        )
 
         self.log(
             "val_pearson",
             val_pearson,
         )
 
-        return {"logits" : logits, "val_pearson" : val_pearson}
-    
+        return {"logits": logits, "val_pearson": val_pearson}
+
     def validation_epoch_end(self, outputs):
         global epoch_num
         val_pearson = [x["val_pearson"] for x in outputs]
         dev_pred = [x["logits"].squeeze() for x in outputs]
-        #print("처리 전 : ", dev_pred)
+        # print("처리 전 : ", dev_pred)
         dev_pred = list(round(float(i), 1) for i in torch.cat(dev_pred))
-        #print("처리 후 : ", dev_pred)
-        
-        if len(dev_pred) == 550: #dev 데이터 개수 확인
-            output = pd.read_csv('../data/dev.csv')
-            output['pred'] = dev_pred
-        
+        # print("처리 후 : ", dev_pred)
+
+        if len(dev_pred) == 550:  # dev 데이터 개수 확인
+            output = pd.read_csv("../data/dev.csv")
+            output["pred"] = dev_pred
+
             X = output.label.values
             Y = output.pred.values
-        
+
             plt.scatter(X, Y, alpha=0.5)
-            plt.title(f"Label/Pred, pearson mean : {round(float(sum(val_pearson)/len(val_pearson)), 5)}")
-            plt.xlabel('Label')
-            plt.ylabel('Pred')
-        
-            plt.savefig(f"batch:{args.batch_size},epoch:{args.max_epoch},lr:{args.learning_rate}, epoch:{epoch_num}.png", dpi=200)
+            plt.title(
+                f"Label/Pred, pearson mean : {round(float(sum(val_pearson)/len(val_pearson)), 5)}"
+            )
+            plt.xlabel("Label")
+            plt.ylabel("Pred")
+
+            plt.savefig(
+                f"batch:{global_batch_size},epoch:{global_max_epoch},lr:{global_learning_rate}, epoch:{epoch_num}.png",
+                dpi=200,
+            )
             plt.clf()
             epoch_num += 1
 
@@ -376,32 +383,19 @@ if __name__ == "__main__":
             raise argparse.ArgumentTypeError("Boolean value expected.")
 
     # 하이퍼 파라미터 등 각종 설정값을 입력받습니다
-<<<<<<< HEAD
-    # 터미널 실행 예시 : python3 run.py --batch_size=64 ...
-    # 실행 시 '--batch_size=64' 같은 인자를 입력하지 않으면 default 값이 기본으로 실행됩니다
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--model_name", default="klue/roberta-base", type=str)
-    parser.add_argument("--batch_size", default=64, type=int)
-    parser.add_argument("--max_epoch", default=1, type=int)
-    parser.add_argument("--shuffle", default=True)
-    parser.add_argument("--learning_rate", default=1e-5, type=float)
-    parser.add_argument("--train_path", default="../data/train.csv")
-    parser.add_argument("--dev_path", default="../data/dev.csv")
-    parser.add_argument("--test_path", default="../data/dev.csv")
-    parser.add_argument("--predict_path", default="../data/test.csv")
-    parser.add_argument("--with_wandb", default=False, type=str2bool)
-    parser.add_argument("--with_wandb_sweep", default=False, type=str2bool)
-    args = parser.parse_args()
-
-    project_name = args.model_name.split("/")[-1]
-=======
     with open("config.json", "r") as f:
         train_config = json.load(f)
 
     project_name = train_config["model_name"].split("/")[-1]
->>>>>>> 7cde9c3994a81574fd01663e716cbe48651dd3b6
     entity = "naver-nlp-07"
     save_top_k = 3
+
+    global global_batch_size
+    global_batch_size = train_config["batch_size"]
+    global global_max_epoch
+    global_max_epoch = train_config["max_epoch"]
+    global global_learning_rate
+    global_learning_rate = train_config["learning_rate"]
 
     if train_config["with_wandb"]:
         wandb.login(key=train_config["key"])  ##insert key
