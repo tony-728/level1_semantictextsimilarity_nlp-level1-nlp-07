@@ -140,13 +140,14 @@ class Dataloader(pl.LightningDataModule):
 
 
 class Model(pl.LightningModule):
-    def __init__(self, model_name, lr):
+    def __init__(self, model_name, lr, step_size, gamma):
         super().__init__()
         self.save_hyperparameters()
 
         self.model_name = model_name
         self.lr = lr
-
+        self.step_size = step_size
+        self.gamma = gamma
         # 사용할 모델을 호출합니다.
         self.plm = transformers.AutoModelForSequenceClassification.from_pretrained(
             pretrained_model_name_or_path=model_name, num_labels=1
@@ -198,7 +199,7 @@ class Model(pl.LightningModule):
 
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(self.parameters(), lr=self.lr)
-        scheduler = StepLR(optimizer, step_size=5, gamma=0.9)
+        scheduler = StepLR(optimizer, self.step_size, self.gamma)
         return [optimizer], [scheduler]
 
 if __name__ == "__main__":
@@ -207,10 +208,10 @@ if __name__ == "__main__":
     # 실행 시 '--batch_size=64' 같은 인자를 입력하지 않으면 default 값이 기본으로 실행됩니다
     parser = argparse.ArgumentParser()
     parser.add_argument("--model_name", default="jhgan/ko-sroberta-sts", type=str)
-    parser.add_argument("--batch_size", default=128, type=int)
+    #parser.add_argument("--batch_size", default=128, type=int)
     parser.add_argument("--max_epoch", default=5, type=int)
     parser.add_argument("--shuffle", default=True)
-    parser.add_argument("--learning_rate", default=1e-5, type=float)
+    #parser.add_argument("--learning_rate", default=1e-5, type=float)
     parser.add_argument("--train_path", default="../data/train.csv")
     parser.add_argument("--dev_path", default="../data/dev.csv")
     parser.add_argument("--test_path", default="../data/dev.csv")
@@ -219,13 +220,19 @@ if __name__ == "__main__":
     project_name = args.model_name.split("/")[-1]
     # wandb setting
     # 필요 라이브러리 import wandb
-    wandb.login(key="4ed020c345bc941f67fbdc08a90ec5d2ea31d4bb")
+    wandb.login(key=)##insert key
     # -------------------------------------------------------------------------------------
     # Sweep 할 대상
     sweep_config = {
         "method": "random",
         "parameters": {
-            "learning_rate": {"distribution": "uniform", "min": 1e-6, "max": 1e-4}
+            "learning_rate": {"distribution": "uniform",
+                              "min": 1e-6, "max": 1e-4},
+            "batch_size": {"values": [8,16,32,64,128,192]},
+            "step_size": {"values": [1,2,4]},
+            "gamma": {"distribution": "uniform",
+                      "min":0.1,
+                      "max":0.9}
         },
     }
     sweep_config["metric"] = {
@@ -235,22 +242,21 @@ if __name__ == "__main__":
     def sweep_train(config=None):
         wandb.init(
             entity="naver-nlp-07",
-            # project=project_name,
-            # name=f"(batch:{args.batch_size},epoch:{args.max_epoch},lr:{config.learning_rate})",
+            project=project_name,
             config=config,
         )
         config = wandb.config
         # dataloader와 model을 생성합니다.
         dataloader = Dataloader(
             args.model_name,
-            args.batch_size,
+            config.batch_size,
             args.shuffle,
             args.train_path,
             args.dev_path,
             args.test_path,
             args.predict_path,
         )
-        model = Model(args.model_name, config.learning_rate)
+        model = Model(args.model_name, config.learning_rate, config.step_size, config.gamma)
         # wandb logger for pytorch lightning Trainer
         # 필요 라이브러리 from pytorch_lightning.loggers import WandbLogger
         wandb_logger = WandbLogger(project=project_name)
@@ -259,7 +265,7 @@ if __name__ == "__main__":
         # 필요 라이브러리 from pytorch_lightning.callbacks import ModelCheckpoint
         checkpoint_callback = ModelCheckpoint(
             monitor="val_pearson",
-            dirpath=f"checkpoint/{project_name}/batch{args.batch_size}_epoch{args.max_epoch}_lr{args.learning_rate}",
+            dirpath=f"checkpoint/{project_name}/batch{config.batch_size}_epoch{config.max_epoch}_lr{config.learning_rate}",
             filename="{epoch:02d}-{val_pearson:.2f}",
             save_top_k=3,
             mode="min",
@@ -279,6 +285,6 @@ if __name__ == "__main__":
     # 학습이 완료된 모델을 저장합니다. 어차피 checkpoint로 마지막 3개를 저장하니까 마지막은 중복저장됨.
     # torch.save(model, "model.pt")
     # sweep.agent를 사용해서 학습 시작
-    sweep_id = wandb.sweep(sweep=sweep_config, project=project_name)
-    wandb.agent(sweep_id=sweep_id, function=sweep_train, count=5)  # Sweep을 몇번 실행할 지 선택
+    sweep_id = wandb.sweep(sweep=sweep_config)#, project=project_name)
+    wandb.agent(sweep_id=sweep_id, function=sweep_train, count=10)  # Sweep을 몇번 실행할 지 선택
     # -------------------------------------------------------------------------------------
