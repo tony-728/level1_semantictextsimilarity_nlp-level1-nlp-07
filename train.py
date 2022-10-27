@@ -290,7 +290,7 @@ class Model(pl.LightningModule):
                 f"batch:{global_batch_size},epoch:{global_max_epoch},lr:{global_learning_rate}, epoch:{epoch_num}.png",
                 dpi=200,
             )
-            plt.clf()
+            plt.clf()  # 그래프를 겹쳐서 보고 싶으면 주석처리함
             epoch_num += 1
 
     def test_step(self, batch, batch_idx):
@@ -349,7 +349,7 @@ def train(config, entity=None, project_name=None, wandb_check=True):
         dirpath=f"checkpoint/{project_name}/batch{config['batch_size']}_epoch{config['max_epoch']}_lr{config['learning_rate']}",
         filename="{epoch:02d}-{val_pearson:.2f}",
         save_top_k=save_top_k,
-        mode="min",
+        mode="max",
     )
 
     # gpu가 없으면 'gpus=0'을, gpu가 여러개면 'gpus=4'처럼 사용하실 gpu의 개수를 입력해주세요
@@ -371,16 +371,6 @@ def train(config, entity=None, project_name=None, wandb_check=True):
 
 if __name__ == "__main__":
     epoch_num = 0
-
-    def str2bool(v):
-        if isinstance(v, bool):
-            return v
-        if v.lower() in ("yes", "true", "t", "y", "1"):
-            return True
-        elif v.lower() in ("no", "false", "f", "n", "0"):
-            return False
-        else:
-            raise argparse.ArgumentTypeError("Boolean value expected.")
 
     # 하이퍼 파라미터 등 각종 설정값을 입력받습니다
     with open("config.json", "r") as f:
@@ -434,7 +424,7 @@ if __name__ == "__main__":
                     dirpath=f"checkpoint/{project_name}/batch{config.batch_size}_epoch{train_config['max_epoch']}_lr{config.learning_rate}",
                     filename="{epoch:02d}-{val_pearson:.2f}",
                     save_top_k=save_top_k,
-                    mode="min",
+                    mode="max",
                 )
 
                 # gpu가 없으면 'gpus=0'을, gpu가 여러개면 'gpus=4'처럼 사용하실 gpu의 개수를 입력해주세요
