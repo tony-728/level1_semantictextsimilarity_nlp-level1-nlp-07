@@ -15,6 +15,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 import wandb
 import json
 
+import re
 
 class Dataset(torch.utils.data.Dataset):
     def __init__(self, inputs, targets=[]):
@@ -68,17 +69,85 @@ class Dataloader(pl.LightningDataModule):
         self.test_dataset = None
         self.predict_dataset = None
 
+        # preprocessing options
+        self.del_special_symbol = True
+        self.del_stopword = True
+        self.del_dup_char = True
+
         self.tokenizer = transformers.AutoTokenizer.from_pretrained(
             model_name, model_max_length=160
         )
         self.target_columns = ["label"]
         self.delete_columns = ["id"]
 
+    def replaceSpecialSymbol(self, text):
+
+        text = re.sub(pattern='…', repl='...', string=text)
+        #text = re.sub(pattern='·', repl='.', string=text)
+        text = re.sub(pattern='[’‘]', repl='\'', string=text)
+        text = re.sub(pattern='[”“]', repl='\"', string=text)
+        text = re.sub(pattern='‥', repl='..ㅤㅤ', string=text)
+        text = re.sub(pattern='｀', repl='`', string=text)
+        #print("이상한 특수기호 변형")
+        #pattern = '[^\w\s]'
+        #text = re.sub(pattern=pattern, repl='.', string=text)
+        return text
+
+    # 문자열에서 인접한 중복 문자를 제거하는 기능
+    def removeDuplicates(self, text):
+        chars = []
+        prev = None
+        for c in text:
+            if prev != c:
+                chars.append(c)
+                prev = c
+        return ''.join(chars)
+
+    def cleanText(self, text):
+        #pattern = '([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)' 
+        #text = re.sub(pattern=pattern, repl='', string=text)
+        #print("E-mail제거 : " , text , "\n")
+        #pattern = '(http|ftp|https)://(?:[-\w.]|(?:%[\da-fA-F]{2}))+'
+        #text = re.sub(pattern=pattern, repl='', string=text)
+        #print("URL 제거 : ", text , "\n")
+        pattern = '([ㄱ-ㅎㅏ-ㅣ]+)'
+        text = re.sub(pattern=pattern, repl='', string=text)
+        #print("한글 자음 모음 제거 : ", text , "\n")
+        #pattern = '<[^>]*>'        
+        #text = re.sub(pattern=pattern, repl='', string=text)
+        #print("태그 제거 : " , text , "\n")
+        #pattern = r'\([^)]*\)'
+        #text = re.sub(pattern=pattern, repl='', string=text)
+        #print("괄호와 괄호안 글자 제거 :  " , text , "\n")
+        #pattern = '[^\w\s]'   
+        #text = re.sub(pattern=pattern, repl='', string=text)
+        #print("특수기호 제거 : ", text , "\n" )
+        text = text.strip()
+        #print("양 끝 공백 제거 : ", text , "\n" )
+        text = " ".join(text.split())
+        #print("중간에 공백은 1개만 : ", text )
+        return text
+
     def tokenizing(self, dataframe):
         data = []
         for idx, item in tqdm(
             dataframe.iterrows(), desc="tokenizing", total=len(dataframe)
         ):
+            # 특수 문자 처리
+            if self.del_special_symbol is True:
+                item["sentence_1"] = self.replaceSpecialSymbol(item["sentence_1"])
+                item["sentence_2"] = self.replaceSpecialSymbol(item["sentence_2"])
+
+            # 불용어 처리를 진행합니다.
+            if self.del_stopword is True:
+                item["sentence_1"] = self.cleanText(item["sentence_1"])
+                item["sentence_2"] = self.cleanText(item["sentence_2"])
+
+            # 반복되는 문자 제거
+            if self.del_dup_char is True:
+                item["sentence_1"] = self.removeDuplicates(item["sentence_1"])
+                item["sentence_2"] = self.removeDuplicates(item["sentence_2"])
+
             outputs = self.tokenizer(
                 item["sentence_1"],
                 item["sentence_2"],
