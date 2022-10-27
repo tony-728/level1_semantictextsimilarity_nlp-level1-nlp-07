@@ -1,4 +1,0 @@
-wandb/
-*.pt
-*.json
-checkpoint/
