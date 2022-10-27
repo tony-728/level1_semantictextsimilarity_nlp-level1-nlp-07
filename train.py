@@ -1,6 +1,7 @@
 import argparse
 
 import pandas as pd
+import matplotlib.pyplot as plt
 
 from tqdm.auto import tqdm
 
@@ -251,13 +252,38 @@ class Model(pl.LightningModule):
         logits = self(x)
         loss = self.loss_func(logits, y.float())
         self.log("val_loss", loss)
+        val_pearson = torchmetrics.functional.pearson_corrcoef(logits.squeeze(), y.squeeze())
 
         self.log(
             "val_pearson",
-            torchmetrics.functional.pearson_corrcoef(logits.squeeze(), y.squeeze()),
+            val_pearson,
         )
 
-        return loss
+        return {"logits" : logits, "val_pearson" : val_pearson}
+    
+    def validation_epoch_end(self, outputs):
+        global epoch_num
+        val_pearson = [x["val_pearson"] for x in outputs]
+        dev_pred = [x["logits"].squeeze() for x in outputs]
+        #print("처리 전 : ", dev_pred)
+        dev_pred = list(round(float(i), 1) for i in torch.cat(dev_pred))
+        #print("처리 후 : ", dev_pred)
+        
+        if len(dev_pred) == 550: #dev 데이터 개수 확인
+            output = pd.read_csv('../data/dev.csv')
+            output['pred'] = dev_pred
+        
+            X = output.label.values
+            Y = output.pred.values
+        
+            plt.scatter(X, Y, alpha=0.5)
+            plt.title(f"Label/Pred, pearson mean : {round(float(sum(val_pearson)/len(val_pearson)), 5)}")
+            plt.xlabel('Label')
+            plt.ylabel('Pred')
+        
+            plt.savefig(f"batch:{args.batch_size},epoch:{args.max_epoch},lr:{args.learning_rate}, epoch:{epoch_num}.png", dpi=200)
+            plt.clf()
+            epoch_num += 1
 
     def test_step(self, batch, batch_idx):
         x, y = batch
@@ -336,6 +362,7 @@ def train(args, entity=None, project_name=None, wandb_check=True):
 
 
 if __name__ == "__main__":
+    epoch_num = 0
 
     def str2bool(v):
         if isinstance(v, bool):
@@ -360,8 +387,8 @@ if __name__ == "__main__":
     parser.add_argument("--dev_path", default="../data/dev.csv")
     parser.add_argument("--test_path", default="../data/dev.csv")
     parser.add_argument("--predict_path", default="../data/test.csv")
-    parser.add_argument("--with_wandb", default=True, type=str2bool)
-    parser.add_argument("--with_wandb_sweep", default=True, type=str2bool)
+    parser.add_argument("--with_wandb", default=False, type=str2bool)
+    parser.add_argument("--with_wandb_sweep", default=False, type=str2bool)
     args = parser.parse_args()
 
     project_name = args.model_name.split("/")[-1]
