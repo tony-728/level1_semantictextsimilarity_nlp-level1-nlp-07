@@ -1,4 +1,5 @@
 import argparse
+import json
 
 import pandas as pd
 
@@ -117,7 +118,7 @@ class Dataloader(pl.LightningDataModule):
 
     def train_dataloader(self):
         return torch.utils.data.DataLoader(
-            self.train_dataset, batch_size=self.batch_size, shuffle=args.shuffle
+            self.train_dataset, batch_size=self.batch_size, shuffle=self.shuffle
         )
 
     def val_dataloader(self):
@@ -197,40 +198,29 @@ class Model(pl.LightningModule):
 
 if __name__ == "__main__":
     # 하이퍼 파라미터 등 각종 설정값을 입력받습니다
-    # 터미널 실행 예시 : python3 run.py --batch_size=64 ...
-    # 실행 시 '--batch_size=64' 같은 인자를 입력하지 않으면 default 값이 기본으로 실행됩니다
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--model_name", default="klue/roberta-large", type=str)
-    parser.add_argument("--batch_size", default=32, type=int)
-    parser.add_argument("--max_epoch", default=5, type=int)
-    parser.add_argument("--shuffle", default=True)
-    parser.add_argument("--learning_rate", default=1e-5, type=float)
-    parser.add_argument("--train_path", default="../data/train.csv")
-    parser.add_argument("--dev_path", default="../data/dev.csv")
-    parser.add_argument("--test_path", default="../data/dev.csv")
-    parser.add_argument("--predict_path", default="../data/test.csv")
-    args = parser.parse_args()
+    with open("config.json", "r") as f:
+        train_config = json.load(f)
 
-    project_name = args.model_name.split("/")[-1]
+    project_name = train_config["model_name"].split("/")[-1]
 
     # dataloader와 model을 생성합니다.
     dataloader = Dataloader(
-        args.model_name,
-        args.batch_size,
-        args.shuffle,
-        args.train_path,
-        args.dev_path,
-        args.test_path,
-        args.predict_path,
+        train_config["model_name"],
+        train_config["batch_size"],
+        train_config["shuffle"],
+        train_config["train_path"],
+        train_config["dev_path"],
+        train_config["test_path"],
+        train_config["predict_path"],
     )
 
-    model = Model(args.model_name, args.learning_rate)
+    model = Model(train_config["model_name"], train_config["learning_rate"])
 
     # gpu가 없으면 'gpus=0'을, gpu가 여러개면 'gpus=4'처럼 사용하실 gpu의 개수를 입력해주세요
-    checkpoint_path = f"checkpoint/{project_name}/*.ckpt"
+    checkpoint_path = f"checkpoint/{project_name}/batch64_epoch5_lr1e-05/epoch=00-val_pearson=0.90.ckpt"
     trainer = pl.Trainer(
         gpus=1,
-        max_epochs=args.max_epoch,
+        max_epochs=train_config["max_epoch"],
         log_every_n_steps=1,
     )
 
@@ -247,6 +237,6 @@ if __name__ == "__main__":
     predictions = list(round(float(i), 1) for i in torch.cat(predictions))
 
     # # output 형식을 불러와서 예측된 결과로 바꿔주고, output.csv로 출력합니다.
-    output = pd.read_csv("../data/sample_submission2.csv")
+    output = pd.read_csv("../data/sample_submission.csv")
     output["target"] = predictions
     output.to_csv("output.csv", index=False)
