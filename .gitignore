@@ -5,3 +5,4 @@ wandb/
 checkpoint/
 lightning_logs/
 *.png
+*.csv
