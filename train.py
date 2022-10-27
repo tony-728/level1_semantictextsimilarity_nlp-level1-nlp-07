@@ -18,6 +18,7 @@ import json
 
 import re
 
+
 class Dataset(torch.utils.data.Dataset):
     def __init__(self, inputs, targets=[]):
         self.inputs = inputs
@@ -83,15 +84,15 @@ class Dataloader(pl.LightningDataModule):
 
     def replaceSpecialSymbol(self, text):
 
-        text = re.sub(pattern='…', repl='...', string=text)
-        #text = re.sub(pattern='·', repl='.', string=text)
-        text = re.sub(pattern='[’‘]', repl='\'', string=text)
-        text = re.sub(pattern='[”“]', repl='\"', string=text)
-        text = re.sub(pattern='‥', repl='..ㅤㅤ', string=text)
-        text = re.sub(pattern='｀', repl='`', string=text)
-        #print("이상한 특수기호 변형")
-        #pattern = '[^\w\s]'
-        #text = re.sub(pattern=pattern, repl='.', string=text)
+        text = re.sub(pattern="…", repl="...", string=text)
+        # text = re.sub(pattern='·', repl='.', string=text)
+        text = re.sub(pattern="[’‘]", repl="'", string=text)
+        text = re.sub(pattern="[”“]", repl='"', string=text)
+        text = re.sub(pattern="‥", repl="..ㅤㅤ", string=text)
+        text = re.sub(pattern="｀", repl="`", string=text)
+        # print("이상한 특수기호 변형")
+        # pattern = '[^\w\s]'
+        # text = re.sub(pattern=pattern, repl='.', string=text)
         return text
 
     # 문자열에서 인접한 중복 문자를 제거하는 기능
@@ -102,31 +103,31 @@ class Dataloader(pl.LightningDataModule):
             if prev != c:
                 chars.append(c)
                 prev = c
-        return ''.join(chars)
+        return "".join(chars)
 
     def cleanText(self, text):
-        #pattern = '([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)' 
-        #text = re.sub(pattern=pattern, repl='', string=text)
-        #print("E-mail제거 : " , text , "\n")
-        #pattern = '(http|ftp|https)://(?:[-\w.]|(?:%[\da-fA-F]{2}))+'
-        #text = re.sub(pattern=pattern, repl='', string=text)
-        #print("URL 제거 : ", text , "\n")
-        pattern = '([ㄱ-ㅎㅏ-ㅣ]+)'
-        text = re.sub(pattern=pattern, repl='', string=text)
-        #print("한글 자음 모음 제거 : ", text , "\n")
-        #pattern = '<[^>]*>'        
-        #text = re.sub(pattern=pattern, repl='', string=text)
-        #print("태그 제거 : " , text , "\n")
-        #pattern = r'\([^)]*\)'
-        #text = re.sub(pattern=pattern, repl='', string=text)
-        #print("괄호와 괄호안 글자 제거 :  " , text , "\n")
-        #pattern = '[^\w\s]'   
-        #text = re.sub(pattern=pattern, repl='', string=text)
-        #print("특수기호 제거 : ", text , "\n" )
+        # pattern = '([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)'
+        # text = re.sub(pattern=pattern, repl='', string=text)
+        # print("E-mail제거 : " , text , "\n")
+        # pattern = '(http|ftp|https)://(?:[-\w.]|(?:%[\da-fA-F]{2}))+'
+        # text = re.sub(pattern=pattern, repl='', string=text)
+        # print("URL 제거 : ", text , "\n")
+        pattern = "([ㄱ-ㅎㅏ-ㅣ]+)"
+        text = re.sub(pattern=pattern, repl="", string=text)
+        # print("한글 자음 모음 제거 : ", text , "\n")
+        # pattern = '<[^>]*>'
+        # text = re.sub(pattern=pattern, repl='', string=text)
+        # print("태그 제거 : " , text , "\n")
+        # pattern = r'\([^)]*\)'
+        # text = re.sub(pattern=pattern, repl='', string=text)
+        # print("괄호와 괄호안 글자 제거 :  " , text , "\n")
+        # pattern = '[^\w\s]'
+        # text = re.sub(pattern=pattern, repl='', string=text)
+        # print("특수기호 제거 : ", text , "\n" )
         text = text.strip()
-        #print("양 끝 공백 제거 : ", text , "\n" )
+        # print("양 끝 공백 제거 : ", text , "\n" )
         text = " ".join(text.split())
-        #print("중간에 공백은 1개만 : ", text )
+        # print("중간에 공백은 1개만 : ", text )
         return text
 
     def tokenizing(self, dataframe):
@@ -200,7 +201,7 @@ class Dataloader(pl.LightningDataModule):
 
     def train_dataloader(self):
         return torch.utils.data.DataLoader(
-            self.train_dataset, batch_size=self.batch_size, shuffle=args.shuffle
+            self.train_dataset, batch_size=self.batch_size, shuffle=self.shuffle
         )
 
     def val_dataloader(self):
@@ -311,25 +312,25 @@ class Model(pl.LightningModule):
         return optimizer
 
 
-def train(args, entity=None, project_name=None, wandb_check=True):
+def train(config, entity=None, project_name=None, wandb_check=True):
 
     # dataloader와 model을 생성합니다.
     dataloader = Dataloader(
-        args.model_name,
-        args.batch_size,
-        args.shuffle,
-        args.train_path,
-        args.dev_path,
-        args.test_path,
-        args.predict_path,
+        config["model_name"],
+        config["batch_size"],
+        config["shuffle"],
+        config["train_path"],
+        config["dev_path"],
+        config["test_path"],
+        config["predict_path"],
     )
-    model = Model(args.model_name, args.learning_rate)
+    model = Model(config["model_name"], config["learning_rate"])
 
     if wandb_check:
         wandb.init(
             entity=entity,
             project=project_name,
-            name=f"(batch:{args.batch_size},epoch:{args.max_epoch},lr:{args.learning_rate})",
+            name=f"(batch:{config['batch_size']},epoch:{config['max_epoch']},lr:{config['learning_rate']})",
         )
         wandb_logger = WandbLogger(project=project_name)
     else:
@@ -338,7 +339,7 @@ def train(args, entity=None, project_name=None, wandb_check=True):
     # pytorch lightning model checkpoint
     checkpoint_callback = ModelCheckpoint(
         monitor="val_pearson",
-        dirpath=f"checkpoint/{project_name}/batch{args.batch_size}_epoch{args.max_epoch}_lr{args.learning_rate}",
+        dirpath=f"checkpoint/{project_name}/batch{config['batch_size']}_epoch{config['max_epoch']}_lr{config['learning_rate']}",
         filename="{epoch:02d}-{val_pearson:.2f}",
         save_top_k=save_top_k,
         mode="min",
@@ -347,7 +348,7 @@ def train(args, entity=None, project_name=None, wandb_check=True):
     # gpu가 없으면 'gpus=0'을, gpu가 여러개면 'gpus=4'처럼 사용하실 gpu의 개수를 입력해주세요
     trainer = pl.Trainer(
         gpus=1,
-        max_epochs=args.max_epoch,
+        max_epochs=config["max_epoch"],
         log_every_n_steps=1,
         logger=wandb_logger,
         callbacks=[checkpoint_callback],  # checkpoint 설정 추가
@@ -375,6 +376,7 @@ if __name__ == "__main__":
             raise argparse.ArgumentTypeError("Boolean value expected.")
 
     # 하이퍼 파라미터 등 각종 설정값을 입력받습니다
+<<<<<<< HEAD
     # 터미널 실행 예시 : python3 run.py --batch_size=64 ...
     # 실행 시 '--batch_size=64' 같은 인자를 입력하지 않으면 default 값이 기본으로 실행됩니다
     parser = argparse.ArgumentParser()
@@ -392,18 +394,21 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     project_name = args.model_name.split("/")[-1]
+=======
+    with open("config.json", "r") as f:
+        train_config = json.load(f)
+
+    project_name = train_config["model_name"].split("/")[-1]
+>>>>>>> 7cde9c3994a81574fd01663e716cbe48651dd3b6
     entity = "naver-nlp-07"
     save_top_k = 3
 
-    with open("config.json", "r") as f:
-        config = json.load(f)
+    if train_config["with_wandb"]:
+        wandb.login(key=train_config["key"])  ##insert key
 
-    if args.with_wandb:
-        wandb.login(key=config["key"])  ##insert key
-
-        if args.with_wandb_sweep == True:
+        if train_config["with_wandb_sweep"] == True:
             # Sweep 할 대상
-            sweep_config = config["sweep_config"]
+            sweep_config = train_config["sweep_config"]
 
             def sweep_train(config=None):
                 wandb.init(
@@ -412,16 +417,16 @@ if __name__ == "__main__":
                 config = wandb.config
                 # dataloader와 model을 생성합니다.
                 dataloader = Dataloader(
-                    args.model_name,
+                    train_config["model_name"],
                     config.batch_size,
-                    args.shuffle,
-                    args.train_path,
-                    args.dev_path,
-                    args.test_path,
-                    args.predict_path,
+                    train_config["shuffle"],
+                    train_config["train_path"],
+                    train_config["dev_path"],
+                    train_config["test_path"],
+                    train_config["predict_path"],
                 )
                 model = Model(
-                    args.model_name,
+                    train_config["model_name"],
                     config.learning_rate,
                     config.step_size,
                     config.gamma,
@@ -432,7 +437,7 @@ if __name__ == "__main__":
                 # pytorch lightning model checkpoint
                 checkpoint_callback = ModelCheckpoint(
                     monitor="val_pearson",
-                    dirpath=f"checkpoint/{project_name}/batch{config.batch_size}_epoch{args.max_epoch}_lr{config.learning_rate}",
+                    dirpath=f"checkpoint/{project_name}/batch{config.batch_size}_epoch{train_config['max_epoch']}_lr{config.learning_rate}",
                     filename="{epoch:02d}-{val_pearson:.2f}",
                     save_top_k=save_top_k,
                     mode="min",
@@ -441,7 +446,7 @@ if __name__ == "__main__":
                 # gpu가 없으면 'gpus=0'을, gpu가 여러개면 'gpus=4'처럼 사용하실 gpu의 개수를 입력해주세요
                 trainer = pl.Trainer(
                     gpus=1,
-                    max_epochs=args.max_epoch,
+                    max_epochs=train_config["max_epoch"],
                     log_every_n_steps=1,
                     logger=wandb_logger,
                     callbacks=[checkpoint_callback],  # checkpoint 설정 추가
@@ -463,12 +468,16 @@ if __name__ == "__main__":
 
         else:
             train(
-                args=args,
+                config=train_config,
                 entity=entity,
                 project_name=project_name,
-                wandb_check=args.with_wandb,
+                wandb_check=train_config["with_wandb"],
             )
 
     else:
         # dataloader와 model을 생성합니다.
-        train(args=args, project_name=project_name, wandb_check=args.with_wandb)
+        train(
+            config=train_config,
+            project_name=project_name,
+            wandb_check=train_config["with_wandb"],
+        )
