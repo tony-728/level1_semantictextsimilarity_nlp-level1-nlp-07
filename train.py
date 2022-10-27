@@ -13,6 +13,7 @@ from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks import ModelCheckpoint
 
 import wandb
+import json
 
 
 class Dataset(torch.utils.data.Dataset):
@@ -202,43 +203,44 @@ class Model(pl.LightningModule):
         scheduler = StepLR(optimizer, self.step_size, self.gamma)
         return [optimizer], [scheduler]
 
+
 if __name__ == "__main__":
     # 하이퍼 파라미터 등 각종 설정값을 입력받습니다
     # 터미널 실행 예시 : python3 run.py --batch_size=64 ...
     # 실행 시 '--batch_size=64' 같은 인자를 입력하지 않으면 default 값이 기본으로 실행됩니다
     parser = argparse.ArgumentParser()
     parser.add_argument("--model_name", default="jhgan/ko-sroberta-sts", type=str)
-    #parser.add_argument("--batch_size", default=128, type=int)
+    # parser.add_argument("--batch_size", default=128, type=int)
     parser.add_argument("--max_epoch", default=5, type=int)
     parser.add_argument("--shuffle", default=True)
-    #parser.add_argument("--learning_rate", default=1e-5, type=float)
+    # parser.add_argument("--learning_rate", default=1e-5, type=float)
     parser.add_argument("--train_path", default="../data/train.csv")
     parser.add_argument("--dev_path", default="../data/dev.csv")
     parser.add_argument("--test_path", default="../data/dev.csv")
     parser.add_argument("--predict_path", default="../data/test.csv")
-    args = parser.parse_args(args=[])
+    args = parser.parse_args()
     project_name = args.model_name.split("/")[-1]
+
     # wandb setting
-    # 필요 라이브러리 import wandb
-    wandb.login(key=)##insert key
-    # -------------------------------------------------------------------------------------
+    config = json.loads("config.json")
+
+    wandb.login(key=config["key"])  ##insert key
+
     # Sweep 할 대상
     sweep_config = {
         "method": "random",
         "parameters": {
-            "learning_rate": {"distribution": "uniform",
-                              "min": 1e-6, "max": 1e-4},
-            "batch_size": {"values": [8,16,32,64,128,192]},
-            "step_size": {"values": [1,2,4]},
-            "gamma": {"distribution": "uniform",
-                      "min":0.1,
-                      "max":0.9}
+            "learning_rate": {"distribution": "uniform", "min": 1e-6, "max": 1e-4},
+            "batch_size": {"values": [8, 16, 32, 64, 128, 192]},
+            "step_size": {"values": [1, 2, 4]},
+            "gamma": {"distribution": "uniform", "min": 0.1, "max": 0.9},
         },
     }
     sweep_config["metric"] = {
         "name": "val_pearson",
         "goal": "maximize",
     }  # val_pearson을 최대화하는걸 기준점으로
+
     def sweep_train(config=None):
         wandb.init(
             entity="naver-nlp-07",
@@ -256,7 +258,9 @@ if __name__ == "__main__":
             args.test_path,
             args.predict_path,
         )
-        model = Model(args.model_name, config.learning_rate, config.step_size, config.gamma)
+        model = Model(
+            args.model_name, config.learning_rate, config.step_size, config.gamma
+        )
         # wandb logger for pytorch lightning Trainer
         # 필요 라이브러리 from pytorch_lightning.loggers import WandbLogger
         wandb_logger = WandbLogger(project=project_name)
@@ -282,9 +286,10 @@ if __name__ == "__main__":
         # Train part
         trainer.fit(model=model, datamodule=dataloader)
         trainer.test(model=model, datamodule=dataloader)
+
     # 학습이 완료된 모델을 저장합니다. 어차피 checkpoint로 마지막 3개를 저장하니까 마지막은 중복저장됨.
     # torch.save(model, "model.pt")
     # sweep.agent를 사용해서 학습 시작
-    sweep_id = wandb.sweep(sweep=sweep_config)#, project=project_name)
+    sweep_id = wandb.sweep(sweep=sweep_config)  # , project=project_name)
     wandb.agent(sweep_id=sweep_id, function=sweep_train, count=10)  # Sweep을 몇번 실행할 지 선택
     # -------------------------------------------------------------------------------------
