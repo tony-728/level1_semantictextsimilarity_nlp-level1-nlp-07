@@ -1,5 +1,3 @@
-import argparse
-
 import pandas as pd
 import matplotlib.pyplot as plt
 
@@ -94,7 +92,7 @@ class Dataloader(pl.LightningDataModule):
         self.del_dup_char = True
 
         self.tokenizer = transformers.AutoTokenizer.from_pretrained(
-            model_name, model_max_length=160
+            model_name, model_max_length=256
         )
         self.target_columns = ["label"]
         self.delete_columns = ["id"]
@@ -348,7 +346,12 @@ def train(config, entity=None, project_name=None, wandb_check=True):
         config["test_path"],
         config["predict_path"],
     )
-    model = Model(config["model_name"], config["learning_rate"])
+    model = Model(
+        model_name=config["model_name"],
+        lr=config["learning_rate"],
+        step_size=config["step_size"],
+        gamma=config["gamma"],
+    )
 
     if wandb_check:
         wandb.init(
@@ -395,7 +398,7 @@ if __name__ == "__main__":
 
     project_name = train_config["model_name"].split("/")[-1]
     entity = "naver-nlp-07"
-    save_top_k = 3
+    save_top_k = 5
 
     global global_batch_size
     global_batch_size = train_config["batch_size"]
