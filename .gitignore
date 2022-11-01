@@ -6,3 +6,4 @@ checkpoint/
 lightning_logs/
 *.png
 *.csv
+__pycache__/
