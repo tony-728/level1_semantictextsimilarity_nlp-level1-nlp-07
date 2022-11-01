@@ -9,21 +9,9 @@ import json
 from Dataloader import Dataloader
 from Model import Model
 
-
-
-
 def train(config, entity=None, project_name=None, wandb_check=True):
 
-    # dataloader와 model을 생성합니다.
-    dataloader = Dataloader(
-        config["model_name"],
-        config["batch_size"],
-        config["shuffle"],
-        config["train_path"],
-        config["dev_path"],
-        config["test_path"],
-        config["predict_path"],
-    )
+    
     model = Model(
         model_name=config["model_name"],
         batch_size = config["batch_size"], 
@@ -52,18 +40,34 @@ def train(config, entity=None, project_name=None, wandb_check=True):
         mode="max",
     )
 
-    # gpu가 없으면 'gpus=0'을, gpu가 여러개면 'gpus=4'처럼 사용하실 gpu의 개수를 입력해주세요
-    trainer = pl.Trainer(
-        gpus=1,
-        max_epochs=config["max_epoch"],
-        log_every_n_steps=1,
-        logger=wandb_logger,
-        callbacks=[checkpoint_callback],  # checkpoint 설정 추가
-    )
+    # dataloader와 model을 생성합니다.
+    nums_folds = 4
 
-    # Train part
-    trainer.fit(model=model, datamodule=dataloader)
-    trainer.test(model=model, datamodule=dataloader)
+    for k in range(nums_folds):
+        dataloader = Dataloader(
+            model_name = config["model_name"],
+            batch_size = config["batch_size"],
+            shuffle = config["shuffle"],
+            train_path = config["train_path"],
+            dev_path = config["dev_path"],
+            test_path = config["test_path"],
+            predict_path = config["predict_path"],
+            k = k,
+            num_splits = nums_folds
+        )
+        
+        # gpu가 없으면 'gpus=0'을, gpu가 여러개면 'gpus=4'처럼 사용하실 gpu의 개수를 입력해주세요
+        trainer = pl.Trainer(
+            gpus=1,
+            max_epochs=config["max_epoch"],
+            log_every_n_steps=1,
+            logger=wandb_logger,
+            callbacks=[checkpoint_callback],  # checkpoint 설정 추가
+        )
+
+        # Train part
+        trainer.fit(model=model, datamodule=dataloader)
+        trainer.test(model=model, datamodule=dataloader)
 
     # 학습이 완료된 모델을 저장합니다.
     # torch.save(model, "model.pt")
@@ -74,7 +78,7 @@ if __name__ == "__main__":
     with open("config.json", "r") as f:
         train_config = json.load(f)
 
-    project_name = train_config["model_name"].split("/")[-1]
+    project_name = train_config["model_name"].split("/")[-1] + "_test"
     entity = "naver-nlp-07"
     save_top_k = 5
 

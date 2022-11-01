@@ -7,6 +7,18 @@ from torch.optim.lr_scheduler import StepLR
 import torchmetrics
 import pytorch_lightning as pl
 
+
+def correlation_loss(y_pred, y_true):
+    x = y_pred.clone()
+    y = y_true.clone()
+    vx = x - torch.mean(x)
+    vy = y - torch.mean(y)
+    cov = torch.sum(vx * vy)
+    corr = cov / (torch.sqrt(torch.sum(vx ** 2)) * torch.sqrt(torch.sum(vy ** 2)) + 1e-12)
+    corr = torch.maximum(torch.minimum(corr,torch.tensor(1)), torch.tensor(-1))
+    return torch.sub(torch.tensor(1), corr ** 2)
+
+
 class Model(pl.LightningModule):
     def __init__(
         self, 
@@ -34,7 +46,9 @@ class Model(pl.LightningModule):
             pretrained_model_name_or_path=model_name, num_labels=1
         )
         # Loss 계산을 위해 사용될 L1Loss를 호출합니다.
-        self.loss_func = torch.nn.L1Loss()
+        self.loss_func = correlation_loss
+        # self.loss_func = torch.nn.RMSELoss()
+        # self.loss_func = torch.nn.L1Loss()
         # self.loss_func = torch.nn.MSELoss()
 
     def forward(self, x):
@@ -53,6 +67,9 @@ class Model(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         x, y = batch
         logits = self(x)
+        # print("val_logits: ", logits.squeeze())
+        # print("y: ", y.float().squeeze())
+        
         loss = self.loss_func(logits, y.float())
         self.log("val_loss", loss)
         val_pearson = torchmetrics.functional.pearson_corrcoef(
@@ -118,3 +135,4 @@ class Model(pl.LightningModule):
             return [optimizer], [scheduler]
 
         return optimizer
+        

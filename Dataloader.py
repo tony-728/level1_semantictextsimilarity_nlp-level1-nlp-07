@@ -8,6 +8,7 @@ import pytorch_lightning as pl
 from tqdm.auto import tqdm
 
 import re
+from sklearn.model_selection import KFold
 
 from Dataset import Dataset
 
@@ -21,6 +22,9 @@ class Dataloader(pl.LightningDataModule):
         dev_path,
         test_path,
         predict_path,
+        k: int = 0,
+        split_seed: int = 12345,
+        num_splits: int = 3,
     ):
         super().__init__()
         self.model_name = model_name
@@ -41,6 +45,10 @@ class Dataloader(pl.LightningDataModule):
         self.del_special_symbol = True
         self.del_stopword = False
         self.del_dup_char = False
+
+        self.k = k
+        self.split_seed = split_seed
+        self.num_splits = num_splits
 
         self.tokenizer = transformers.AutoTokenizer.from_pretrained(
             model_name, model_max_length=256
@@ -139,19 +147,21 @@ class Dataloader(pl.LightningDataModule):
 
     def setup(self, stage="fit"):
         if stage == "fit":
-            # 학습 데이터와 검증 데이터셋을 호출합니다
-            train_data = pd.read_csv(self.train_path)
-            val_data = pd.read_csv(self.dev_path)
+            # 데이터 준비
+            total_data = pd.read_csv(self.train_path)
+            total_input, total_targets = self.preprocessing(total_data)
+            total_dataset = Dataset(total_input, total_targets)
 
-            # 학습데이터 준비
-            train_inputs, train_targets = self.preprocessing(train_data)
+            # 데이터셋 num_splits 번 fold
+            kf = KFold(n_splits=self.num_splits, shuffle=self.shuffle, random_state=self.split_seed)
+            all_splits = [k for k in kf.split(total_dataset)]
+            # k번째 fold 된 데이터셋의 index 선택
+            train_indexes, val_indexes = all_splits[self.k]
+            train_indexes, val_indexes = train_indexes.tolist(), val_indexes.tolist()
 
-            # 검증데이터 준비
-            val_inputs, val_targets = self.preprocessing(val_data)
-
-            # train 데이터만 shuffle을 적용해줍니다, 필요하다면 val, test 데이터에도 shuffle을 적용할 수 있습니다
-            self.train_dataset = Dataset(train_inputs, train_targets)
-            self.val_dataset = Dataset(val_inputs, val_targets)
+            # fold한 index에 따라 데이터셋 분할
+            self.train_dataset = [total_dataset[x] for x in train_indexes] 
+            self.val_dataset = [total_dataset[x] for x in val_indexes]
         else:
             # 평가데이터 준비
             test_data = pd.read_csv(self.test_path)
