@@ -37,7 +37,7 @@ def train(config, entity=None, project_name=None, wandb_check=True):
         wandb.init(
             entity=entity,
             project=project_name,
-            name=f"[{config["model_name"]}](batch:{config['batch_size']},epoch:{config['max_epoch']},lr:{config['learning_rate']})",
+            name=f"[{config['model_name']}](batch:{config['batch_size']},epoch:{config['max_epoch']},lr:{config['learning_rate']})",
         )
         wandb_logger = WandbLogger(project=project_name)
     else:
