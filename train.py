@@ -37,7 +37,7 @@ def train(config, entity=None, project_name=None, wandb_check=True):
         wandb.init(
             entity=entity,
             project=project_name,
-            name=f"(batch:{config['batch_size']},epoch:{config['max_epoch']},lr:{config['learning_rate']})",
+            name=f"[{config["model_name"]}](batch:{config['batch_size']},epoch:{config['max_epoch']},lr:{config['learning_rate']})",
         )
         wandb_logger = WandbLogger(project=project_name)
     else:
@@ -54,11 +54,13 @@ def train(config, entity=None, project_name=None, wandb_check=True):
 
     # gpu가 없으면 'gpus=0'을, gpu가 여러개면 'gpus=4'처럼 사용하실 gpu의 개수를 입력해주세요
     trainer = pl.Trainer(
+        accumulate_grad_batches=2,
         gpus=1,
         max_epochs=config["max_epoch"],
         log_every_n_steps=1,
         logger=wandb_logger,
         callbacks=[checkpoint_callback],  # checkpoint 설정 추가
+
     )
 
     # Train part
@@ -74,7 +76,8 @@ if __name__ == "__main__":
     with open("config.json", "r") as f:
         train_config = json.load(f)
 
-    project_name = train_config["model_name"].split("/")[-1]
+    # project_name = train_config["model_name"].split("/")[-1]
+    project_name = "final"
     entity = "naver-nlp-07"
     save_top_k = 5
 
