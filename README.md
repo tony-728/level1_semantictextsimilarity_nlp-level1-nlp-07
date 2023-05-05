@@ -24,11 +24,11 @@ level1_semantictextsimilarity_nlp-level1-nlp-07 created by GitHub Classroom
 
 ## 데이터 셋 구조
 
-train data 개수: 9,324
+- train data: 9,324
 
-test data 개수: 1,100
+- test data: 1,100
 
-dev data 개수: 550
+- dev data: 550
 
 Label 점수: 0 ~ 5사이의 실수
 
